@@ -1,0 +1,56 @@
+version: '3'
+services:
+  app:
+    build: .
+    command: sh -c "python dismantling_samokat/mainpars.py & python dismantling_samokat/app.py"
+    links:
+      - chrome
+      - db
+    ports:
+      - "5000:5000"
+    depends_on:
+      chrome:
+        condition: service_healthy
+    networks:
+      - mynet
+  db:
+    healthcheck:
+      test: ["CMD-SHELL", "PGPASSWORD=admin pg_isready -h localhost -p 5432 -U admin -d database"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    image: postgres
+    restart: always
+    volumes:
+      - .:/var/lib/postgresql/data/
+    environment:
+            - POSTGRES_USER=admin
+            - POSTGRES_PASSWORD=admin
+            - POSTGRES_DB=db
+            - PGDATA=/var/lib/postgresql/data/db/
+    ports:
+      - "5432:5432"
+    networks:
+      - mynet
+  chrome:
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sSL", "http://localhost:4444/wd/hub/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    image: selenium/standalone-chrome:118.0.5993.70-chromedriver-118.0.5993.70
+    restart: always
+    hostname: localhost
+    ports:
+      - "4444:4444"
+      - "7900:7900"
+    networks:
+      - mynet
+networks:
+    mynet:
+      name: mynet
